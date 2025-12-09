@@ -10,6 +10,7 @@
 //for more info please go schema
 
 #include "stm32f1xx_hal_gpio.h"
+uint8_t clk_counter = 0;
 void input_init(void)
 {
     //here is FO0-FO7
@@ -71,39 +72,27 @@ void send_uart_output(void) {
     // 例如: "FPGA AT 1234: 10110011\n"
     char buf[64];
     int len = snprintf(buf, sizeof(buf),
-                       "FPGA AT %lu: %c%c%c%c%c%c%c%c\n",
+                       "FPGA AT %lu: %c%c%c%c%c%c%c%c at count %d\n",
                        time,
                        data[0], data[1], data[2], data[3],
-                       data[4], data[5], data[6], data[7]);
+                       data[4], data[5], data[6], data[7] , clk_counter++);
 
     HAL_UART_Transmit(&huart2, (uint8_t*)buf, len,100);
 }
-/* 简单 NOP 循环回退（需校准，精度差）*/
-static inline void nop_delay_loops(uint32_t loops)
-{
-    for (volatile uint32_t i = 0; i < loops; ++i) {
-        __NOP();
-    }
-}
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     if (GPIO_Pin == GPIO_PIN_0)
     {
         // 读取当前 PA0 电平，决定 PA8 输出
         GPIO_PinState state = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
-
         if (state == GPIO_PIN_SET) {
-            // 上升沿：拉高 PA8
-            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
-            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
-            nop_delay_loops(100000);
-            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
+            send_uart_output();
+
+
         } else {
-            // 下降沿：拉低 PA8
-            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
-            nop_delay_loops(100000);
-            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
+
+
+
         }
         HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
     }
